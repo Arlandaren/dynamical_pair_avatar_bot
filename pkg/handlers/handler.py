@@ -2,11 +2,12 @@ from aiogram import Router
 import sys,os, uuid
 import asyncio
 from aiogram import Bot, Router, F
-from aiogram.types import Message
+from aiogram.filters import CommandStart
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from pyrogram import Client
 from pyrogram.errors import SessionPasswordNeeded
-from pyrogram.utils import ainput
+from pkg.usecase.kb import menu
 # from pkg.usecase. import start_process
 from pkg.usecase.states import States
 from pkg.repository.redis import RD
@@ -16,32 +17,61 @@ API_TOKEN = os.getenv("API_TOKEN")
 
 bot = Bot(token=API_TOKEN)
 
-@r.message(F.text == "/start")
+@r.message(CommandStart())
 async def start(msg: Message, state: FSMContext):
     await state.clear()
-    await msg.answer("Привет!")
-    loop = asyncio.get_event_loop()
-    # telegram_logger = TelegramLogger(bot, msg.chat.id, loop)
-    # sys.stdout = telegram_logger
+    if msg.text.startswith("/start invite_"):
+        _,token = msg.text.split('_')
+        print(token)
+        user_id = RD.client.get(token)
+        await msg.answer(text=f"Вас пригласил {user_id}, дождитесь пока ваш партнер запустит процесс")
+        await bot.send_message(user_id, "Ваш партнер присоединился", reply_markup=menu(user_id))
+        RD.client.set(user_id,msg.from_user.id)
+    else:
+        await msg.answer("Привет!")
 
-    await msg.answer("Перешли сообщение того с кем хочешь поставить аву")
+        # telegram_logger = TelegramLogger(bot, msg.chat.id, loop)
+        # sys.stdout = telegram_logger
 
-    await state.set_state(States.forward)
+        token = uuid.uuid4()
+        link = f"https://t.me/ChinaMapp_Queue_bot?start=invite_{str(token)}"
+        await msg.answer(f"Скинь этот инвайт линк партнеру\n{link}")
+        RD.client.set(str(token), msg.from_user.id)
 
-@r.message(States.forward)
-async def get_forward(msg: Message, state: FSMContext):
-    if msg.forward_from:
-        try:
-            user_id = msg.forward_from.id
-            token = uuid.uuid4()
-            RD.client.lpush("tokens", "123")
-            await bot.send_message(user_id,"Вас пригласили")
-            
-        except Exception:
-            await msg.answer("Попросите этого пользователя начать работу с ботом и попробуйте еще раз")
+@r.callback_query(F.data.startswith("start_"))
+async def begin(cb:CallbackQuery, state:FSMContext):
+    _, user_id = cb.data.split("_")
+
+    partner_id = RD.client.get(user_id)
     
-    await state.update_data(user_id=user_id)
+
+    await bot.send_message(partner_id, "Ваш партнер начал процесс")
+
+    await bot.send_message(user_id, "Введите ваш номер телефона привязанный к тг")
+    await bot.send_message(partner_id, "Введите ваш номер телефона привязанный к тг")
+
+    await state.update_data(user_id=user_id,partner_id=partner_id)
     await state.set_state(States.number)
+
+@r
+
+
+
+
+# @r.message(States.forward)
+# async def get_forward(msg: Message, state: FSMContext):
+#     if msg.forward_from:
+#         try:
+#             user_id = msg.forward_from.id
+#             token = uuid.uuid4()
+#             RD.client.set(str(token), msg.from_user.id)
+#             await bot.send_message(user_id,"Вас пригласили")
+            
+#         except Exception:
+#             await msg.answer("Попросите этого пользователя начать работу с ботом и попробуйте еще раз")
+    
+#     await state.update_data(user_id=user_id)
+#     await state.set_state(States.number)
 
 # @r.message(States.number)
 # async def handle_phone_number(msg: Message, state: FSMContext):
