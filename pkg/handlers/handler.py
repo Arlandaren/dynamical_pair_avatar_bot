@@ -11,6 +11,9 @@ from pkg.usecase.kb import menu
 # from pkg.usecase. import start_process
 from pkg.usecase.states import States
 from pkg.repository.redis import RD
+from .router import dp
+from pkg.usecase.auth import *
+
 r = Router()
 
 API_TOKEN = os.getenv("API_TOKEN")
@@ -34,7 +37,7 @@ async def start(msg: Message, state: FSMContext):
         # sys.stdout = telegram_logger
 
         token = uuid.uuid4()
-        link = f"https://t.me/ChinaMapp_Queue_bot?start=invite_{str(token)}"
+        link = f"https://t.me/{os.getenv("BOT_USERNAME")}?start=invite_{str(token)}"
         await msg.answer(f"Скинь этот инвайт линк партнеру\n{link}")
         RD.client.set(str(token), msg.from_user.id)
 
@@ -52,9 +55,55 @@ async def begin(cb:CallbackQuery, state:FSMContext):
 
     await state.update_data(user_id=user_id,partner_id=partner_id)
     await state.set_state(States.number)
+    await dp.fsm.get_context(bot, user_id=partner_id, chat_id=partner_id).set_state(States.number)
 
-@r
+@r.message(States.number)
+async def get_number(msg:Message, state:FSMContext):
+    payload = await state.get_data()
+    user_id = payload["user_id"]
+    partner_id = payload["partner_id"]
+    e,app = await number(msg.text)
+    if e == Exception:
+        await msg.answer(text=f"{e}")
+    else:
+        await bot.send_message(user_id, "Введите пришедший код")
 
+        await state.update_data(phone=msg.text, hash=e, app=app)
+        await state.set_state(States.code)
+
+@r.message(States.code)
+async def get_code(msg:Message, state:FSMContext):
+    payload = await state.get_data()
+    user_id = payload["user_id"]
+    partner_id = payload["partner_id"]
+    phone = payload["phone"]
+    hash = payload["hash"]
+    app = payload["app"]
+    e = await authorize_in_pyrogram(phone,msg.text,hash,app)
+
+    if e == "Auth2":
+        await msg.answer(text=f"У вас включенна двухфакторая аунтефикация")
+        await msg.answer(text=f"Чтобы продолжить введите пароль от аккаунта")
+        await state.set_state(States.password)
+
+    elif e == None:
+        await msg.answer(text="Success")
+    else:
+        await msg.answer(text=f"zzz {e}")
+
+
+@r.message(States.password)
+async def get_password(msg:Message, state:FSMContext):
+    payload = await state.get_data()
+    user_id = payload["user_id"]
+    partner_id = payload["partner_id"]
+    phone = payload["phone"]
+    e = await password(msg.text,phone)
+
+    if e != None:
+        await msg.answer(text=f"{e}")
+    else:
+        await msg.answer("Авторизация успешна")
 
 
 

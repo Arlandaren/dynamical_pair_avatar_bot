@@ -1,17 +1,17 @@
 import asyncio, logging
 from aiogram import Bot, Dispatcher, Router, F
-from pkg.handlers.router import r
+from pkg.handlers.router import dp
+from pkg.handlers.handler import r
+import os
 
-API_TOKEN = '7428911519:AAGJTtCFV6by3tRMQG7VgGD4-FJtCtFnVps'
-
-bot = Bot(token=API_TOKEN)
+bot = Bot(token=os.getenv("API_TOKEN"))
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    p = Dispatcher()
-    p.include_router(r)
 
-    await p.start_polling(bot)
+    dp.include_router(r)
+
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":

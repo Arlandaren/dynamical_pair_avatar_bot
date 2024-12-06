@@ -6,7 +6,7 @@ import os
 
 API_TOKEN = os.getenv("API_TOKEN")
 API_ID = os.getenv("API_ID")
-API_HASH = os.getenv("API_TOKEN")
+API_HASH = os.getenv("API_HASH")
 
 api_id2 = '27808347'
 api_hash2 = '0ceea5770b7fedf15f4e76f3aabeca6c'
@@ -57,7 +57,7 @@ async def start_process():
     #             print("err")
 
     #         await asyncio.sleep(5)
-    async with Client("my_account", api_id1, api_hash1) as app:
+    async with Client("my_account", API_ID, API_HASH) as app:
         while True:
             if imgs_work == []:
                 imgs_work = imgs_orig
@@ -72,7 +72,7 @@ async def start_process():
             else:
                 print("err")
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(30)
 
 if __name__ == "__main__":
     print("Starting...")
